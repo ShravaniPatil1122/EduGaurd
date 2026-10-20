@@ -11,6 +11,8 @@ import {
   ParentCommunicationRecord,
   ParentMeetingSchedule,
   AttendanceRecord,
+  InterventionRecord,
+  MLPredictionResult,
 } from '../types';
 import {
   INITIAL_STUDENTS,
@@ -24,7 +26,9 @@ import {
   INITIAL_PARENT_RECORDS,
   INITIAL_PARENT_MEETINGS,
   INITIAL_ATTENDANCE,
+  INITIAL_INTERVENTIONS,
 } from '../data/mockData';
+import { predictionService } from './predictionService';
 
 export interface ToastItem {
   id: string;
@@ -36,6 +40,7 @@ export interface ToastItem {
 interface AppContextType {
   // State
   students: Student[];
+  interventions: InterventionRecord[];
   dailyTopics: DailyTopicCardData[];
   missedSubjects: MissedClassSubject[];
   supportPlan: SupportPlan;
@@ -49,6 +54,7 @@ interface AppContextType {
   activeDate: string;
   selectedClassFilter: string;
   toasts: ToastItem[];
+  mlServiceOnline: boolean;
 
   // Mutations
   setSelectedClassFilter: (className: string) => void;
@@ -68,6 +74,9 @@ interface AppContextType {
   }) => void;
   scheduleMeeting: (studentId: string, studentName: string, slot: string) => void;
   updateAttendance: (id: string, status: 'Present' | 'Absent' | 'Late') => void;
+  recordIntervention: (record: Omit<InterventionRecord, 'id'>) => void;
+  updateInterventionStatus: (id: string, status: InterventionRecord['status'], outcome?: string) => void;
+  checkMLBackend: () => Promise<void>;
   showToast: (title: string, message: string, type?: ToastItem['type']) => void;
   removeToast: (id: string) => void;
   resetDemoData: () => void;
@@ -84,13 +93,23 @@ const STORAGE_KEYS = {
   PARENT_RECORDS: 'eduguard_parent_records_v1',
   PARENT_MEETINGS: 'eduguard_parent_meetings_v1',
   ATTENDANCE: 'eduguard_attendance_v1',
+  INTERVENTIONS: 'eduguard_interventions_v1',
+  STUDENTS: 'eduguard_students_v1',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Load from localStorage or fallback to initial
-  const [students] = useState<Student[]>(INITIAL_STUDENTS);
+  const [students, setStudents] = useState<Student[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+    return saved ? JSON.parse(saved) : INITIAL_STUDENTS;
+  });
+
+  const [interventions, setInterventions] = useState<InterventionRecord[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.INTERVENTIONS);
+    return saved ? JSON.parse(saved) : INITIAL_INTERVENTIONS;
+  });
+
   const [dailyTopics] = useState<DailyTopicCardData[]>(INITIAL_DAILY_TOPICS);
-  const [learningGaps] = useState<LearningGapOverviewItem[]>(INITIAL_LEARNING_GapsSafe);
+  const [learningGaps] = useState<LearningGapOverviewItem[]>(INITIAL_LEARNING_GAPS);
 
   const [missedSubjects, setMissedSubjects] = useState<MissedClassSubject[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.MISSED_SUBJECTS);
@@ -135,8 +154,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>('All Classes');
   const [activeDate, setActiveDate] = useState<string>('Mon, 20 Oct 2025');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [mlServiceOnline, setMlServiceOnline] = useState<boolean>(false);
+
+  // Check ML Service health periodically
+  const checkMLBackend = async () => {
+    const isOnline = await predictionService.checkHealth();
+    setMlServiceOnline(isOnline);
+  };
+
+  useEffect(() => {
+    checkMLBackend();
+    const interval = setInterval(checkMLBackend, 8000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Sync to local storage on changes
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+  }, [students]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.INTERVENTIONS, JSON.stringify(interventions));
+  }, [interventions]);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.MISSED_SUBJECTS, JSON.stringify(missedSubjects));
   }, [missedSubjects]);
@@ -180,6 +220,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const recordIntervention = (record: Omit<InterventionRecord, 'id'>) => {
+    const newRecord: InterventionRecord = {
+      ...record,
+      id: `int-${Date.now()}`,
+    };
+    setInterventions((prev) => [newRecord, ...prev]);
+
+    // Positively adjust student risk score upon intervention
+    setStudents((prev) =>
+      prev.map((s) => {
+        if (s.id === record.studentId) {
+          const newScore = Math.max(10, s.riskScore - 6);
+          const newRiskLevel = newScore >= 55 ? 'High' : newScore >= 25 ? 'Medium' : 'Low';
+          return {
+            ...s,
+            riskScore: newScore,
+            riskLevel: newRiskLevel,
+            improving: true,
+          };
+        }
+        return s;
+      })
+    );
+
+    showToast('Intervention Logged', `Action recorded for ${record.studentName}. Follow-up scheduled for ${record.followUpDate}.`, 'success');
+  };
+
+  const updateInterventionStatus = (id: string, status: InterventionRecord['status'], outcome?: string) => {
+    setInterventions((prev) =>
+      prev.map((inv) => (inv.id === id ? { ...inv, status, outcome: outcome || inv.outcome } : inv))
+    );
+    showToast('Intervention Updated', `Status changed to ${status}.`);
   };
 
   const toggleTaskCompletion = (subjectId: string, taskId: string) => {
@@ -239,7 +313,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       [studentId]: [...(prev[studentId] || []), newTeacherMsg],
     }));
 
-    // Realistic auto-reply from classmate after 1.5 seconds
+    // Realistic auto-reply from classmate after 1.2 seconds
     setTimeout(() => {
       const replyText =
         studentId === 'aarav-sharma'
@@ -313,7 +387,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setParentRecords((prev) => [newRecord, ...prev]);
     showToast(
       'Message Dispatched',
-      `Sent ${draft.messageType} via ${draft.channel} to ${draft.studentName}'s parent. (Demo Mode: Recorded locally)`,
+      `Sent ${draft.messageType} via ${draft.channel} to ${draft.studentName}'s parent.`,
       'success'
     );
   };
@@ -341,6 +415,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const resetDemoData = () => {
     localStorage.clear();
+    setStudents(INITIAL_STUDENTS);
+    setInterventions(INITIAL_INTERVENTIONS);
     setMissedSubjects(ROHAN_MISSED_SUBJECTS);
     setSupportPlan(INITIAL_SUPPORT_PLAN);
     setPeerClassmates(INITIAL_PEER_CLASSMATES);
@@ -356,6 +432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         students,
+        interventions,
         dailyTopics,
         missedSubjects,
         supportPlan,
@@ -369,6 +446,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeDate,
         selectedClassFilter,
         toasts,
+        mlServiceOnline,
         setSelectedClassFilter,
         setActiveDate,
         toggleTaskCompletion,
@@ -380,6 +458,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendParentMessage,
         scheduleMeeting,
         updateAttendance,
+        recordIntervention,
+        updateInterventionStatus,
+        checkMLBackend,
         showToast,
         removeToast,
         resetDemoData,
@@ -397,8 +478,3 @@ export const useAppStore = () => {
   }
   return context;
 };
-
-// Safe fallback helper for learning gaps
-function INITIAL_LEARNING_GapsSafe() {
-  return INITIAL_LEARNING_GAPS;
-}

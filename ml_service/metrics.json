@@ -1,0 +1,72 @@
+{
+  "model_name": "EduGuard Random Forest Early Dropout Predictor",
+  "model_version": "1.0.0",
+  "sample_size_total": 2500,
+  "train_samples": 2000,
+  "test_samples": 500,
+  "dropout_rate_pct": 6.52,
+  "accuracy": 0.922,
+  "precision": 0.4444,
+  "recall": 0.7273,
+  "f1_score": 0.5517,
+  "roc_auc": 0.954,
+  "cv_f1_mean": 0.589,
+  "cv_f1_std": 0.0344,
+  "confusion_matrix": {
+    "true_negatives": 437,
+    "false_positives": 30,
+    "false_negatives": 9,
+    "true_positives": 24
+  },
+  "feature_importances": [
+    [
+      "attendance_rate",
+      0.4666073683505057
+    ],
+    [
+      "consecutive_absences",
+      0.19398497199102277
+    ],
+    [
+      "current_gpa",
+      0.12195740225939897
+    ],
+    [
+      "gpa_drop",
+      0.07409394507256226
+    ],
+    [
+      "missed_assignments_ratio",
+      0.046741074842612335
+    ],
+    [
+      "past_failures",
+      0.029199401397671215
+    ],
+    [
+      "peer_study_hours_weekly",
+      0.028413896816114483
+    ],
+    [
+      "commute_time_mins",
+      0.01903661969591042
+    ],
+    [
+      "disciplinary_incidents",
+      0.011210862379746613
+    ],
+    [
+      "parent_education_level",
+      0.006586275846442825
+    ],
+    [
+      "fee_arrears",
+      0.002168181348012346
+    ]
+  ],
+  "limitations_and_ethics": [
+    "Predictions represent probabilistic statistical vulnerability, NOT a certainty or human verdict.",
+    "The model must only be used by teachers as an early alert to provide supportive remediation, never punitive measures.",
+    "Features reflect educational proxies; socio-demographic indicators are non-causal."
+  ]
+}

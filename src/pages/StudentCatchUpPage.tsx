@@ -10,20 +10,34 @@ import {
   HelpCircle,
   Sparkles,
   ExternalLink,
-  Award
+  Award,
+  History,
+  ShieldAlert,
+  Calendar,
+  UserCheck,
+  TrendingDown,
+  Info
 } from 'lucide-react';
 import { useAppStore } from '../services/store';
 import { QuizModal } from '../components/learning/QuizModal';
 import { AiExplanationModal } from '../components/learning/AiExplanationModal';
+import { InterventionModal } from '../components/interventions/InterventionModal';
 
 export const StudentCatchUpPage: React.FC = () => {
   const { studentId } = useParams<{ studentId: string }>();
   const navigate = useNavigate();
-  const { students, missedSubjects, toggleTaskCompletion, showToast } = useAppStore();
+  const {
+    students,
+    missedSubjects,
+    interventions,
+    toggleTaskCompletion,
+    showToast,
+  } = useAppStore();
 
-  const [activeTab, setActiveTab] = useState<'Missed Topics' | 'Catch-up Plan' | 'Resources'>('Missed Topics');
+  const [activeTab, setActiveTab] = useState<'Missed Topics' | 'Catch-up Plan' | 'Resources' | 'Student Indicators & History'>('Missed Topics');
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [isAiExplainerOpen, setIsAiExplainerOpen] = useState(false);
+  const [isInterventionModalOpen, setIsInterventionModalOpen] = useState(false);
 
   // Content Preview Modal for Watch/Read/Practice buttons
   const [activeContentModal, setActiveContentModal] = useState<{
@@ -33,6 +47,7 @@ export const StudentCatchUpPage: React.FC = () => {
   } | null>(null);
 
   const student = students.find((s) => s.id === studentId) || students[0];
+  const studentInterventions = interventions.filter((i) => i.studentId === student.id);
 
   const handleActionClick = (
     subjectId: string,
@@ -87,6 +102,13 @@ export const StudentCatchUpPage: React.FC = () => {
         onClose={() => setIsAiExplainerOpen(false)}
         initialTopic="Quadratic Equations"
         initialSubject="Mathematics"
+      />
+
+      {/* Intervention Modal */}
+      <InterventionModal
+        isOpen={isInterventionModalOpen}
+        onClose={() => setIsInterventionModalOpen(false)}
+        defaultStudent={student}
       />
 
       {/* Resource Content Viewer Modal */}
@@ -150,12 +172,20 @@ export const StudentCatchUpPage: React.FC = () => {
           <span>Back to Daily Topics</span>
         </button>
 
-        <h1 className="text-xl sm:text-2xl font-bold text-brand-textPrimary tracking-tight">
-          Daily Topics & Missed-class Recovery
-        </h1>
-        <p className="text-xs sm:text-sm text-brand-textSecondary mt-0.5">
-          Track daily topics, view missed classes and personalised catch-up plans.
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-brand-textPrimary tracking-tight">
+              Daily Topics & Missed-class Recovery
+            </h1>
+            <p className="text-xs sm:text-sm text-brand-textSecondary mt-0.5">
+              Track daily topics, view missed classes and personalised catch-up plans.
+            </p>
+          </div>
+
+          <span className="text-[11px] font-semibold text-brand-textSecondary bg-brand-cyanBg px-3 py-1 rounded-full border border-brand-border self-start sm:self-auto">
+            Synthetic Demonstration Record (PS 03 Tested)
+          </span>
+        </div>
       </div>
 
       {/* Student Profile Summary Card */}
@@ -169,32 +199,37 @@ export const StudentCatchUpPage: React.FC = () => {
           <div>
             <h2 className="text-base font-bold text-brand-textPrimary">{student.name}</h2>
             <div className="text-xs text-brand-textSecondary">
-              Class {student.class} • Roll No: {student.rollNo}
+              Class {student.class} • Roll No: {student.rollNo} • Attendance: {student.attendanceRate}%
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-700">
             {student.missedClassesThisWeek} classes missed
           </span>
 
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
+            {student.riskScore}% Dropout Probability
+          </span>
+
           <button
-            onClick={() => navigate(`/learning-gaps/student/${student.id}/support`)}
-            className="px-3.5 py-1.5 bg-brand-emerald hover:bg-brand-emeraldHover text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
+            onClick={() => setIsInterventionModalOpen(true)}
+            className="px-3 py-1.5 bg-brand-emerald hover:bg-brand-emeraldHover text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
           >
-            <span>Targeted Support Plan</span>
+            <ShieldAlert className="w-3.5 h-3.5" />
+            <span>Log Check-in</span>
           </button>
         </div>
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-brand-border">
-        {(['Missed Topics', 'Catch-up Plan', 'Resources'] as const).map((tab) => (
+      <div className="flex border-b border-brand-border overflow-x-auto">
+        {(['Missed Topics', 'Catch-up Plan', 'Resources', 'Student Indicators & History'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-5 py-2.5 text-xs font-semibold transition-all relative ${
+            className={`px-5 py-2.5 text-xs font-semibold transition-all relative whitespace-nowrap ${
               activeTab === tab
                 ? 'text-brand-emerald'
                 : 'text-brand-textSecondary hover:text-brand-textPrimary'
@@ -208,7 +243,7 @@ export const StudentCatchUpPage: React.FC = () => {
         ))}
       </div>
 
-      {/* Main Tab Content */}
+      {/* Tab 1: Missed Topics */}
       {activeTab === 'Missed Topics' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
           {/* Left Column (Span 2): Missed Subjects & Tasks */}
@@ -218,7 +253,6 @@ export const StudentCatchUpPage: React.FC = () => {
                 key={sub.id}
                 className="bg-white border border-brand-border rounded-2xl p-4 sm:p-5 shadow-subtle space-y-3.5"
               >
-                {/* Subject Header */}
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-brand-emerald" />
                   <h3 className="font-bold text-brand-textPrimary text-sm sm:text-base">
@@ -230,7 +264,6 @@ export const StudentCatchUpPage: React.FC = () => {
                   Topic: {sub.topicTitle}
                 </div>
 
-                {/* Task Checklist */}
                 <div className="space-y-2.5 pl-4 pt-1">
                   {sub.tasks.map((task) => (
                     <div
@@ -272,7 +305,6 @@ export const StudentCatchUpPage: React.FC = () => {
 
           {/* Right Column: AI Explanation & Recommended Practice */}
           <div className="space-y-4">
-            {/* AI Explanation Card */}
             <div className="bg-white border border-brand-border rounded-2xl p-4 shadow-subtle space-y-3">
               <div className="flex items-center gap-2 text-brand-emerald font-bold text-xs uppercase tracking-wider">
                 <Sparkles className="w-4 h-4" />
@@ -295,7 +327,6 @@ export const StudentCatchUpPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Recommended Practice Card */}
             <div className="bg-white border border-brand-border rounded-2xl p-4 shadow-subtle space-y-3">
               <div className="font-bold text-brand-textPrimary text-xs uppercase tracking-wider">
                 Recommended Practice
@@ -345,7 +376,7 @@ export const StudentCatchUpPage: React.FC = () => {
         </div>
       )}
 
-      {/* Catch-up Plan Tab */}
+      {/* Tab 2: Catch-up Plan */}
       {activeTab === 'Catch-up Plan' && (
         <div className="bg-white border border-brand-border rounded-2xl p-6 text-center space-y-3">
           <Award className="w-10 h-10 text-brand-emerald mx-auto" />
@@ -363,7 +394,7 @@ export const StudentCatchUpPage: React.FC = () => {
         </div>
       )}
 
-      {/* Resources Tab */}
+      {/* Tab 3: Resources */}
       {activeTab === 'Resources' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-white border border-brand-border rounded-2xl p-4 space-y-2">
@@ -389,6 +420,104 @@ export const StudentCatchUpPage: React.FC = () => {
             >
               Download Formula Sheet PDF →
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 4: Student Indicators & History (Phase 3 & 6) */}
+      {activeTab === 'Student Indicators & History' && (
+        <div className="space-y-5">
+          {/* Recent Attendance Breakdown */}
+          <div className="bg-white border border-brand-border rounded-2xl p-5 shadow-subtle space-y-3">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-brand-textPrimary">
+              Recent Attendance Log & Absence Patterns
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+              {(student.indicators?.attendanceHistory || [
+                { date: 'Oct 14', status: 'Present' },
+                { date: 'Oct 15', status: 'Present' },
+                { date: 'Oct 16', status: 'Late', reason: 'Bus delay' },
+                { date: 'Oct 17', status: 'Absent', reason: 'Unexcused' },
+                { date: 'Oct 18', status: 'Absent', reason: 'Fever' },
+                { date: 'Oct 20', status: 'Present' },
+              ]).map((att, idx) => (
+                <div
+                  key={idx}
+                  className={`p-3 rounded-xl border text-center text-xs ${
+                    att.status === 'Present'
+                      ? 'bg-emerald-50/50 border-emerald-200 text-emerald-800'
+                      : att.status === 'Late'
+                      ? 'bg-amber-50/50 border-amber-200 text-amber-800'
+                      : 'bg-rose-50/50 border-rose-200 text-rose-800'
+                  }`}
+                >
+                  <div className="text-[10px] text-gray-500 font-semibold">{att.date}</div>
+                  <div className="font-bold mt-0.5">{att.status}</div>
+                  <div className="text-[9px] mt-0.5 truncate text-gray-400">{att.reason || 'Attended'}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Academic Trajectory */}
+          <div className="bg-white border border-brand-border rounded-2xl p-5 shadow-subtle space-y-3">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-brand-textPrimary">
+              Term GPA Trajectory & Grade Drop Analysis
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              {(student.indicators?.termGpaHistory || [
+                { term: 'Term 1', score: 62 },
+                { term: 'Midterm', score: 54 },
+                { term: 'Current', score: 42 },
+              ]).map((gpa, idx) => (
+                <div key={idx} className="p-3.5 bg-brand-cyanBg/40 border border-brand-border rounded-xl text-center">
+                  <div className="text-xs text-brand-textSecondary">{gpa.term}</div>
+                  <div className="text-xl font-bold text-brand-dark mt-0.5">{gpa.score}%</div>
+                </div>
+              ))}
+            </div>
+            <div className="text-[11px] text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-100 flex items-center gap-1.5 font-medium">
+              <TrendingDown className="w-4 h-4 text-brand-danger shrink-0" />
+              <span>Overall 20-point drop from Term 1 baseline; strong statistical trigger for early dropout alert.</span>
+            </div>
+          </div>
+
+          {/* Teacher Interventions Log */}
+          <div className="bg-white border border-brand-border rounded-2xl p-5 shadow-subtle space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-brand-textPrimary">
+                Past Teacher Interventions & Follow-up History
+              </h3>
+              <button
+                onClick={() => setIsInterventionModalOpen(true)}
+                className="px-3 py-1 bg-brand-emerald text-white rounded-lg text-xs font-semibold hover:bg-brand-emeraldHover"
+              >
+                + New Log
+              </button>
+            </div>
+
+            {studentInterventions.length > 0 ? (
+              <div className="space-y-2.5">
+                {studentInterventions.map((inv) => (
+                  <div key={inv.id} className="p-3.5 rounded-xl border border-brand-border bg-brand-cyanBg/20 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-brand-textPrimary">{inv.type} ({inv.date})</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-100 text-cyan-800">
+                        {inv.status}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-brand-textSecondary">"{inv.notes}"</p>
+                    <div className="text-[10px] text-brand-emerald font-semibold pt-1">
+                      Outcome: {inv.outcome}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 text-center text-xs text-brand-textSecondary bg-brand-cyanBg/20 rounded-xl">
+                No past interventions recorded for {student.name}. Use "+ New Log" to initiate counseling.
+              </div>
+            )}
           </div>
         </div>
       )}

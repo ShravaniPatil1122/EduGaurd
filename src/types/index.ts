@@ -8,6 +8,53 @@ export interface ParentInfo {
   preferredChannel: 'WhatsApp' | 'SMS' | 'Email';
 }
 
+export interface StudentIndicators {
+  consecutiveAbsences: number;
+  gpaDrop: number; // Term drop
+  missedAssignmentsRatio: number; // percentage
+  pastFailures: number;
+  parentEducationLevel: number; // 1 to 4
+  commuteTimeMins: number;
+  peerStudyHoursWeekly: number;
+  disciplinaryIncidents: number;
+  feeStatus: 'Paid' | 'Overdue' | 'Exempt';
+  attendanceHistory: { date: string; status: 'Present' | 'Absent' | 'Late'; reason?: string }[];
+  termGpaHistory: { term: string; score: number }[];
+}
+
+export interface FactorExplanation {
+  feature: string;
+  label: string;
+  impact: 'high' | 'medium' | 'low';
+  direction: 'risk' | 'protective';
+  description: string;
+}
+
+export interface MLPredictionResult {
+  student_id: string;
+  student_name: string;
+  dropout_probability_pct: number;
+  risk_level: RiskLevel;
+  is_model_prediction: boolean;
+  contributing_factors: FactorExplanation[];
+  recommended_interventions: string[];
+  disclaimer: string;
+}
+
+export interface InterventionRecord {
+  id: string;
+  studentId: string;
+  studentName: string;
+  date: string;
+  type: 'Check-in & Counseling' | 'Catch-Up Study Plan' | 'Parent Meeting' | 'Peer Mentor Assignment' | 'Financial/Fee Counseling';
+  status: 'Scheduled' | 'In Progress' | 'Follow-up Needed' | 'Resolved';
+  notes: string;
+  followUpDate: string;
+  outcome?: string;
+  riskScoreBefore: number;
+  riskScoreAfter?: number;
+}
+
 export interface Student {
   id: string;
   name: string;
@@ -17,7 +64,7 @@ export interface Student {
   rollNo: string;
   missedClassesThisWeek: number;
   riskLevel: RiskLevel;
-  riskScore: number; // percentage
+  riskScore: number; // percentage dropout probability
   improving: boolean;
   avgScore: number;
   attendanceRate: number;
@@ -26,6 +73,8 @@ export interface Student {
   bio?: string;
   distanceKm?: number;
   coordinates?: [number, number];
+  indicators?: StudentIndicators;
+  prediction?: MLPredictionResult;
 }
 
 export interface DailyTopicCardData {
@@ -87,7 +136,7 @@ export interface PeerClassmate {
   preferredStudyModes: ('In-person' | 'Online (video call)' | 'Group study')[];
   availabilityDays: string[];
   availabilityTime: string;
-  coordinates: [number, number]; // lat, lng
+  coordinates: [number, number];
   connected: boolean;
   pendingRequest: boolean;
 }

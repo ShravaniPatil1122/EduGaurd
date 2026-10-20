@@ -1,0 +1,13 @@
+[
+  "attendance_rate",
+  "consecutive_absences",
+  "current_gpa",
+  "gpa_drop",
+  "missed_assignments_ratio",
+  "past_failures",
+  "parent_education_level",
+  "commute_time_mins",
+  "peer_study_hours_weekly",
+  "disciplinary_incidents",
+  "fee_arrears"
+]
